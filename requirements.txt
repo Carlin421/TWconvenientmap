@@ -1,0 +1,5 @@
+Flask
+pandas
+geopy
+folium
+flask-cors
