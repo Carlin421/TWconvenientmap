@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>便利商店競爭分析</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+</head>
+<body>
+    <h1>便利商店競爭分析</h1>
+
+    <div class="form-group">
+        <label for="brand">選擇超商別：</label>
+        <select id="brand">
+            <option value="">-- 選擇超商 --</option>
+            {% for brand in brands %}
+                <option value="{{ brand }}">{{ brand }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="county">選擇縣市：</label>
+        <select id="county">
+            <option value="">-- 選擇縣市 --</option>
+            {% for county in counties %}
+                <option value="{{ county }}">{{ county }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-group">
+        <select id="county" name="county">
+            <!-- 縣市選項 -->
+        </select>
+        
+        <select id="district" name="district">
+            <option value="">請選擇區域</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="store">選擇分店：</label>
+        <select id="store">
+            <option value="">-- 選擇分店 --</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <button id="search">查詢</button>
+    </div>
+
+    <div id="map" style="width: 100%; height: 500px;"></div>
+
+    <div id="nearby-results">
+        <h2>500m 內的分店</h2>
+        <p id="store-count"></p>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>公司名稱</th>
+                    <th>分公司名稱</th>
+                    <th>地址</th>
+                    <th>距離 (km)</th>
+                </tr>
+            </thead>
+            <tbody id="stores-table">
+                <!-- 內容將由 JavaScript 填充 -->
+            </tbody>
+        </table>
+        <h3>競爭集中度：<span id="competition-index"></span></h3>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <!-- jQuery (用於簡化 AJAX 操作) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- 自訂 JavaScript -->
+    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+</body>
+</html>
