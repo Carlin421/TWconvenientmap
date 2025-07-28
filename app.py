@@ -5,14 +5,15 @@ from geopy.distance import geodesic
 import requests
 import xml.etree.ElementTree as ET
 from flask_cors import CORS
-
+import os
 app = Flask(__name__)
 CORS(app)
 
 # SQLite connection
 conn = sqlite3.connect("stores.db", check_same_thread=False)
 conn.row_factory = sqlite3.Row
-
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
 # Load entire stores table into DataFrame for efficiency
 df = pd.read_sql_query("SELECT * FROM stores", conn)
 
@@ -31,7 +32,7 @@ county_code_mapping = {
     '台北市': 'A', '台中市': 'B', '基隆市': 'C', '台南市': 'D', '高雄市': 'E',
     '新北市': 'F', '宜蘭縣': 'G', '桃園縣': 'H', '苗栗縣': 'K', '南投縣': 'M',
     '彰化縣': 'N', '雲林縣': 'P', '嘉義縣': 'Q', '連江縣': 'Z', '嘉義市': 'I',
-    '屏東縣': 'T', '花蓮縣': 'U', '台東縣': 'V', '澎湖縣': 'X', '陽明山': 'Y'
+    '屏東縣': 'T', '花蓮縣': 'U', '台東縣': 'V', '澎湖縣': 'X'
 }
 
 def fetch_towns_by_county_code(code):
