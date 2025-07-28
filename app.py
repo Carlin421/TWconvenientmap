@@ -1,148 +1,143 @@
 from flask import Flask, render_template, request, jsonify
+import sqlite3
 import pandas as pd
-from math import radians, sin, cos, sqrt, atan2
 from geopy.distance import geodesic
-import folium
 import requests
-from flask_cors import CORS
 import xml.etree.ElementTree as ET
+from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # 啟用跨來源資源共享
+CORS(app)
 
-# 縣市別與代碼對照表
+# SQLite connection
+conn = sqlite3.connect("stores.db", check_same_thread=False)
+conn.row_factory = sqlite3.Row
+
+# Load entire stores table into DataFrame for efficiency
+df = pd.read_sql_query("SELECT * FROM stores", conn)
+
+# Normalize address column (replace 臺 with 台)
+if 'Address' in df.columns:
+    df['Address'] = df['Address'].str.replace('臺', '台', regex=False)
+    addr_col = 'Address'
+elif '地址' in df.columns:
+    df['地址']   = df['地址'].str.replace('臺', '台', regex=False)
+    addr_col = '地址'
+else:
+    raise KeyError("找不到 Address 或 地址 欄位，請檢查資料表欄位名稱")
+
+# County-to-code mapping
 county_code_mapping = {
-    '台北市': 'A',
-    '台中市': 'B',
-    '基隆市': 'C',
-    '台南市': 'D',
-    '高雄市': 'E',
-    '新北市': 'F',
-    '宜蘭縣': 'G',
-    '桃園縣': 'H',
-    '苗栗縣': 'K',
-    '南投縣': 'M',
-    '彰化縣': 'N',
-    '雲林縣': 'P',
-    '嘉義縣': 'Q',
-    '連江縣': 'Z',
-    '嘉義市': 'I',
-    '高雄市': 'S',
-    '屏東縣': 'T',
-    '花蓮縣': 'U',
-    '台東縣': 'V',
-    '澎湖縣': 'X',
-    '陽明山': 'Y',
+    '台北市': 'A', '台中市': 'B', '基隆市': 'C', '台南市': 'D', '高雄市': 'E',
+    '新北市': 'F', '宜蘭縣': 'G', '桃園縣': 'H', '苗栗縣': 'K', '南投縣': 'M',
+    '彰化縣': 'N', '雲林縣': 'P', '嘉義縣': 'Q', '連江縣': 'Z', '嘉義市': 'I',
+    '屏東縣': 'T', '花蓮縣': 'U', '台東縣': 'V', '澎湖縣': 'X', '陽明山': 'Y'
 }
 
-def fetch_towns_by_county_code(county_code):
-    api_url = f"https://api.nlsc.gov.tw/other/ListTown1/{county_code}"
+def fetch_towns_by_county_code(code):
+    url = f"https://api.nlsc.gov.tw/other/ListTown1/{code}"
     try:
-        response = requests.get(api_url)
-        response.raise_for_status()
-        
-        # 解析 XML
-        root = ET.fromstring(response.content)
-        towns = []
-        for town_item in root.findall('townItem'):
-            town_name = town_item.find('townname').text
-            towns.append({'Name': town_name})
-        
-        return towns
-    except requests.exceptions.RequestException as e:
-        print(f"API請求錯誤: {e}")
+        r = requests.get(url)
+        r.raise_for_status()
+        root = ET.fromstring(r.content)
+        return [ { 'Name': item.find('townname').text.replace('臺','台') }
+                 for item in root.findall('townItem') ]
+    except Exception as e:
+        print(f"fetch_towns error: {e}")
         return []
-    except ET.ParseError as e:
-        print(f"XML 解析錯誤: {e}")
-        return []
-
-# 讀取並清理資料
-df = pd.read_csv("data/output.csv")
-
-# 確保經緯度為數字，並去除有缺失值的資料
-df['Longitude'] = pd.to_numeric(df['Longitude'], errors='coerce')
-df['Latitude'] = pd.to_numeric(df['Latitude'], errors='coerce')
-df.dropna(subset=['Longitude', 'Latitude'], inplace=True)
-
-# 獲取所有超商品牌的選項
-store_brands = sorted(df['公司名稱'].unique())
 
 @app.route('/')
 def index():
-    return render_template('index.html', brands=store_brands, counties=sorted(county_code_mapping.keys()))
+    brands = sorted(df['公司名稱'].unique())
+    return render_template('index.html',
+                           brands=brands,
+                           counties=sorted(county_code_mapping.keys()))
 
-@app.route('/get_districts', methods=['POST'])
+# ========== 鄉鎮路由 ==========
+@app.route('/get_districts', methods=['GET', 'POST'])
+@app.route('/api/districts',  methods=['GET', 'POST'])
 def get_districts():
-    county = request.json.get('county')
-    county_code = county_code_mapping.get(county)
-    if not county_code:
-        return jsonify({"error": "Invalid county"}), 400
+    if request.method == 'POST':
+        county = (request.json or {}).get('county')
+    else:
+        county = request.args.get('county')
+    code = county_code_mapping.get(county)
+    if not code:
+        return jsonify({ 'error': 'Invalid county' }), 400
 
-    towns = fetch_towns_by_county_code(county_code)
-    district_names = [town['Name'] for town in towns]
-    return jsonify(district_names)
+    towns = fetch_towns_by_county_code(code)
+    return jsonify([ t['Name'] for t in towns ])
 
-@app.route('/get_stores', methods=['POST'])
+# ========== 分店查詢 ==========
+@app.route('/get_stores', methods=['GET', 'POST'])
+@app.route('/api/stores', methods=['GET', 'POST'])
 def get_stores():
-    brand = request.json.get('brand')
-    county = request.json.get('county')
-    district = request.json.get('district')
+    # debug log
+    print("→ get_stores:", request.method, request.json or request.args)
 
-    # 篩選資料
+    if request.method == 'POST':
+        data = request.json or {}
+        brand, county, district = data.get('brand'), data.get('county'), data.get('district')
+    else:
+        brand   = request.args.get('brand')
+        county  = request.args.get('county')
+        district= request.args.get('district')
+
+    county_norm   = county.replace('臺', '台') if county else ''
+    district_norm = district.replace('臺', '台') if district else ''
+
     filtered = df[
         (df['公司名稱'] == brand) &
-        (df['Address'].str.contains(county)) &
-        (df['Address'].str.contains(district))
+        df[addr_col].str.contains(county_norm, na=False) &
+        df[addr_col].str.contains(district_norm, na=False)
     ]
-
-    stores = filtered.to_dict(orient='records')
-    return jsonify(stores)
-
-@app.route('/get_nearby_stores', methods=['POST'])
-def get_nearby_stores():
-    selected_store = request.json.get('selected_store')
-    radius = float(request.json.get('radius', 0.5))  # 默認500m
-
-    store_coords = (selected_store['Latitude'], selected_store['Longitude'])
-
-    nearby_stores = []
-    for _, row in df.iterrows():
-        store_coords_other = (row['Latitude'], row['Longitude'])
-        distance = geodesic(store_coords, store_coords_other).km
-        if distance <= radius:
-            store_info = {
-                '公司名稱': row['公司名稱'],
-                '分公司名稱': row['分公司名稱'],
-                'Address': row['Address'],
-                'Longitude': row['Longitude'],
-                'Latitude': row['Latitude'],
-                '距離': round(distance, 3)
-            }
-            nearby_stores.append(store_info)
-
-    # 計算競爭集中度
-    numerator = 0
-    denominator = 0
-    for store in nearby_stores:
-        if store['公司名稱'] == '全聯實業股份有限公司':
-            weight = 4
-        else:
-            weight = 1
-        distance_sq = store['距離'] ** 2
-        numerator += (weight ** 2)
-        denominator += distance_sq
-
-    if denominator != 0:
-        competition_index = numerator / denominator
-    else:
-        competition_index = 0
-
-    result = {
-        'nearby_stores': nearby_stores,
-        'competition_index': round(competition_index, 3)
-    }
-
+    result = []
+    for _, row in filtered.iterrows():
+        result.append({
+            '公司名稱':   row['公司名稱'],
+            '分公司名稱': row['分公司名稱'],
+            'Address':    row[addr_col],
+            'Longitude':  row['Longitude'],
+            'Latitude':   row['Latitude']
+        })
     return jsonify(result)
 
+# ========== 競爭分析 ==========
+@app.route('/get_nearby_stores', methods=['POST'])
+@app.route('/api/analysis',        methods=['POST'])
+def get_nearby_stores():
+    data   = request.json or {}
+    sel    = data.get('selected_store')
+    radius = float(data.get('radius', 0.5))
+
+    # debug log
+    print("→ get_nearby_stores:", sel, "radius=", radius)
+
+    base = (sel['Latitude'], sel['Longitude'])
+    nearby = []
+    for _, row in df.iterrows():
+        d = geodesic(base, (row['Latitude'], row['Longitude'])).km
+        if d <= radius:
+            nearby.append({
+                '公司名稱':   row['公司名稱'],
+                '分公司名稱': row['分公司名稱'],
+                'Address':    row[addr_col],
+                '距離':       round(d, 3)
+            })
+
+    num   = sum((4 if s['公司名稱']=='全聯實業股份有限公司' else 1)**2 for s in nearby)
+    den   = sum(s['距離']**2 for s in nearby)
+    ci_prop = (num/den) if den else 0
+    dsum  = den
+    sel_d = next((s['距離'] for s in nearby if s['分公司名稱']==sel['分公司名稱']), 0)
+    ci_dist = (sel_d**2/dsum) if dsum else 0
+
+    return jsonify({
+        'nearby_stores': nearby,
+        'competition_index_proportion': round(ci_prop, 3),
+        'competition_index_distance':   round(ci_dist, 3)
+    })
+
 if __name__ == '__main__':
+    print("啟動 Flask，請求紀錄會在這裡顯示…")
     app.run(debug=True)
