@@ -21,6 +21,11 @@ const defaultIcon = L.icon({
 // ===== 全域變數 =====
 let storesData = [];
 let storesTable, map, markersLayer, competitorLayer, selectionCircle;
+let countyDistricts = {};
+fetch('/static/data/districts.json')
+  .then(r => r.json())
+  .then(data => countyDistricts = data)
+  .catch(() => console.warn('載入鄉鎮清單失敗'));
 
 // ===== 工具函式 =====
 function showAlert(msg) {
@@ -113,10 +118,16 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // 縣市變更 → 載入鄉鎮
-  countySelect.addEventListener('change', () => {
-    clearAlert();
-    fetchDistricts(countySelect.value);
-  });
+countySelect.addEventListener('change', () => {
+  clearAlert();
+  const towns = countyDistricts[countySelect.value] || [];
+  // 填入 <option>
+  districtSelect.innerHTML = towns.length
+    ? '<option value="">── 選擇鄉鎮 ──</option>' +
+      towns.map(t => `<option>${t}</option>`).join('')
+    : '<option value="">（無資料）</option>';
+  districtSelect.disabled = towns.length === 0;
+});
 
   // 查詢同品牌分店
   searchBtn.addEventListener('click', async () => {
