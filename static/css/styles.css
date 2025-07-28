@@ -1,103 +1,50 @@
+/* static/css/styles.css */
+/* 全域字體與顏色 */
 :root {
-  --bs-primary-rgb: 71, 129, 213;
+  --bs-primary-rgb: 43,76,126;
   --bs-primary: rgb(var(--bs-primary-rgb));
-  --bs-body-font-family: 'Noto Sans TC', sans-serif;
   --bs-body-bg: #f8f9fa;
-  --map-height: 60vh;
-  --panel-bg: #ffffff;
-  --panel-border-radius: 0.75rem;
-  --panel-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --bs-body-font: 'Noto Sans TC', sans-serif;
+  --panel-radius: .5rem;
+  --shadow-light: 0 6px 18px rgba(0, 0, 0, .08);
 }
 
 body {
+  margin: 0;
+  font-family: var(--bs-body-font);
   background-color: var(--bs-body-bg);
-  font-family: var(--bs-body-font-family);
 }
 
-.control-panel {
-  background-color: var(--panel-bg);
-  padding: 2rem;
-  border-radius: var(--panel-border-radius);
-  box-shadow: var(--panel-shadow);
-  height: 100%;
+/* Navbar、Sidebar、卡片陰影 */
+.navbar, .navbar .dropdown-menu, .nav-link.active, .card {
+  box-shadow: var(--shadow-light) !important;
 }
+.navbar-brand { font-size: 1.25rem; }
 
-.form-label {
-  font-weight: 500;
-  color: #495057;
-}
-
-.form-select,
-.form-control {
-  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-}
-
-.form-select:focus,
-.form-control:focus {
-  border-color: var(--bs-primary);
-  box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
-}
-
-.btn-primary {
-  --bs-btn-bg: var(--bs-primary);
-  --bs-btn-border-color: var(--bs-primary);
-  --bs-btn-hover-bg: #3b71ca;
-  --bs-btn-hover-border-color: #386bc0;
-  --bs-btn-active-bg: #386bc0;
-  --bs-btn-active-border-color: #3565b6;
-  font-weight: 500;
-  padding: 0.75rem 1rem;
-}
-
-.map-container {
-  background-color: var(--panel-bg);
-  border-radius: var(--panel-border-radius);
-  box-shadow: var(--panel-shadow);
-  padding: 0.5rem;
-  height: calc(var(--map-height) + 1rem);
-}
-
+/* Map hover */
 #map {
-  width: 100%;
-  height: var(--map-height);
-  border-radius: calc(var(--panel-border-radius) - 0.25rem);
-  background-color: #e9ecef;
+  border-radius: var(--panel-radius) var(--panel-radius) 0 0;
+  transition: box-shadow .3s;
+}
+#map:hover { box-shadow: 0 0 12px rgba(0,0,0,0.12); }
+
+/* 表格 hover */
+.table-hover tbody tr:hover {
+  background-color: rgba(var(--bs-primary-rgb), .08);
 }
 
-.card {
-  border-radius: var(--panel-border-radius);
-  box-shadow: var(--panel-shadow);
-  border: none;
-}
+/* disabled select */
+.form-select:disabled { background-color: #e9ecef; }
 
-.card-header {
-  background-color: #f1f3f5;
-  border-bottom: 1px solid #dee2e6;
+/* 通知下拉 */
+.notification-menu {
+  min-width: 280px;
+  max-height: 300px;
+  overflow-y: auto;
 }
-
-.table-hover > tbody > tr:hover > * {
-  --bs-table-accent-bg: rgba(var(--bs-primary-rgb), 0.1);
+.notification-item {
+  padding: .5rem 1rem;
+  border-bottom: 1px solid #e9ecef;
+  font-size: .875rem;
 }
-
-.analysis-box {
-  background-color: #e7f5ff;
-  border-color: #bde0fe;
-  color: #0a58ca;
-  border-radius: var(--panel-border-radius);
-  box-shadow: var(--panel-shadow);
-  height: 100%;
-}
-
-.analysis-box .alert-heading {
-  color: inherit;
-}
-
-/* Responsive adjustments */
-@media (max-width: 991.98px) {
-  :root {
-    --map-height: 50vh;
-  }
-  .control-panel {
-    margin-bottom: 2rem;
-  }
-}
+.notification-item:last-child { border-bottom: none; }

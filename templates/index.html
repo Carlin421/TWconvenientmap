@@ -1,79 +1,229 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <title>便利商店競爭分析</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>台灣便利商店競爭地圖</title>
+
+  <!-- Bootstrap 5 核心 CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+    integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
+    crossorigin="anonymous"
+  />
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet" />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- DataTables CSS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
 </head>
 <body>
-    <h1>便利商店競爭分析</h1>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary px-3">
+    <a class="navbar-brand fw-bold" href="#"><i class="bi bi-map"></i> StoreMap</a>
+    <form class="d-none d-md-flex ms-3 flex-grow-1">
+      <input class="form-control form-control-sm" type="search" placeholder="搜尋專案…" aria-label="Search">
+    </form>
+    <div class="d-flex align-items-center">
+      <!-- 使用說明按鈕 -->
+      <button id="showGuideBtn" class="btn btn-link text-white me-3">
+        <i class="bi bi-info-circle"></i>
+      </button>
+      <button class="btn btn-link text-white position-relative me-2">
+        <i class="bi bi-envelope"></i>
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">3</span>
+      </button>
+      <div class="dropdown">
+        <button id="notifyBtn" class="btn btn-link text-white position-relative me-3" data-bs-toggle="dropdown">
+          <i class="bi bi-bell"></i>
+          <span id="notifyCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">0</span>
+        </button>
+        <ul id="notifyList" class="dropdown-menu dropdown-menu-end notification-menu text-small" aria-labelledby="notifyBtn">
+          <li class="notification-item text-center text-muted">目前無新通知</li>
+        </ul>
+      </div>
 
-    <div class="form-group">
-        <label for="brand">選擇超商別：</label>
-        <select id="brand">
-            <option value="">-- 選擇超商 --</option>
-            {% for brand in brands %}
-                <option value="{{ brand }}">{{ brand }}</option>
-            {% endfor %}
-        </select>
     </div>
+  </nav>
 
-    <div class="form-group">
-        <label for="county">選擇縣市：</label>
-        <select id="county" name="county">
-            <option value="">-- 選擇縣市 --</option>
-            {% for county in counties %}
-                <option value="{{ county }}">{{ county }}</option>
-            {% endfor %}
-        </select>
+  <div class="d-flex">
+    <!-- Sidebar -->
+    <nav class="bg-primary text-white vh-100 p-3" style="width: 250px;">
+      <ul class="nav nav-pills flex-column mb-auto">
+        <li class="nav-item mb-2"><a href="#" class="nav-link text-white active"><i class="bi bi-pin-map me-2"></i>地圖分析</a></li>
+
+      </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow-1 p-4 bg-light">
+      <div class="container-fluid">
+        <!-- Row 1: Search Panel & Map -->
+        <div class="row g-4">
+          <div class="col-md-4">
+            <div class="card shadow-sm">
+              <div class="card-body">
+                <h5 class="card-title text-primary"><i class="bi bi-search me-1"></i>搜尋與分析</h5>
+                <div class="mb-3">
+                  <label for="brand" class="form-label">品牌</label>
+                  <select id="brand" class="form-select">
+                    <option value="">-- 所有品牌 --</option>
+                    {% for b in brands %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label for="county" class="form-label">縣市</label>
+                  <select id="county" class="form-select" disabled>
+                    <option value="">-- 選擇縣市 --</option>
+                    {% for c in counties %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label for="district" class="form-label">鄉鎮市區</label>
+                  <select id="district" class="form-select" disabled>
+                    <option value="">-- 請先選縣市 --</option>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label for="store" class="form-label">分店</label>
+                  <select id="store" class="form-select" disabled>
+                    <option value="">── 選擇分店 ──</option>
+                  </select>
+                </div>
+                <button id="search" class="btn btn-primary w-100">
+                  <i class="bi bi-play-circle me-1"></i><span id="searchBtnText">查詢</span>
+                  <span id="searchSpinner" class="spinner-border spinner-border-sm text-light d-none ms-2"></span>
+                </button>
+                <div id="alert-box" class="alert alert-danger mt-3 d-none"></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-8">
+            <div class="card shadow-sm">
+              <div id="map" style="height:60vh;border-radius:.5rem .5rem 0 0;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2: Table & Analysis -->
+        <div id="results-area" class="row g-4 mt-2 d-none">
+          <!-- 左側：競爭對手表格 -->
+          <div class="col-lg-8">
+            <div class="card shadow-sm">
+              <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-people me-1"></i>500 m 內競爭對手</h6>
+              </div>
+              <div class="card-body p-0">
+                <table id="stores-table" class="table table-hover mb-0">
+                  <thead class="table-light">
+                    <tr><th>公司</th><th>分店</th><th>地址</th><th class="text-end">距離 (m)</th></tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <!-- 右側：競爭集中度 -->
+          <div class="col-lg-4">
+            <div class="card shadow-sm">
+              <div class="card-body d-flex align-items-center justify-content-between">
+                <div>
+                  <h6 class="card-title mb-1"><i class="bi bi-speedometer2 me-1"></i>競爭集中度</h6>
+                  <p class="mb-1">Proportion CI: <strong id="ci-prop-value">--</strong></p>
+                  <p class="mb-0">Distance CI:    <strong id="ci-dist-value">--</strong></p>
+                </div>
+                <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#ciHelpModal">
+                  這是什麼？
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+<!-- 使用說明 Modal -->
+<div class="modal fade" id="usageGuideModal" tabindex="-1" aria-labelledby="usageGuideModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="usageGuideModalLabel">使用說明</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>歡迎使用「台灣便利商店競爭地圖」。本工具整合下列資料來源：</p>
+        <ul>
+          <li>
+            鄉鎮市區資料：行政院地政資料開放平台（NLSc）<br>
+            <code class="copyable"
+                  data-url="https://api.nlsc.gov.tw/other/ListTown1">
+              https://api.nlsc.gov.tw/other/ListTown1
+            </code>
+          </li>
+          <li>
+            便利商店分店清單：工商資料開放平台<br>
+            <code class="copyable"
+                  data-url="https://data.gcis.nat.gov.tw/od/detail?oid=0202BFA9-8116-4E63-A41A-58A5F4EAF7A2">
+              https://data.gcis.nat.gov.tw/od/detail?oid=0202BFA9-8116-4E63-A41A-58A5F4EAF7A2
+            </code>
+          </li>
+          <li>品牌圖示（icon）：各品牌官方網站</li>
+          <li>地圖：採用開源 Leaflet（OpenStreetMap）</li>
+        </ul>
+        <p>⚠️ 由於資料非即時更新，且地址轉換過程可能有誤，如有問題歡迎來信：</p>
+        <p><a href="mailto:carlin42605@gmail.com">carlin42605@gmail.com</a></p>
+        <hr>
+        <p>使用步驟：</p>
+        <ol>
+          <li>選擇「品牌」、「縣市」、「鄉鎮市區」。</li>
+          <li>按「查詢」，顯示該區分店。</li>
+          <li>點標記可看 500m 內競爭對手及指標。</li>
+          <li>點右上 <i class="bi bi-info-circle"></i> 隨時開啟說明。</li>
+        </ol>
+        <hr>
+        <p>作者：侯楷言</p>
+        <p>指導老師：駱世民老師</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+      </div>
     </div>
+  </div>
+</div>
 
-    <div class="form-group">
-        <label for="district">選擇區域：</label>
-        <select id="district" name="district">
-            <option value="">請選擇區域</option>
-        </select>
+
+
+  <!-- CI 說明 Modal -->
+  <div class="modal fade" id="ciHelpModal" tabindex="-1" aria-labelledby="ciHelpModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="ciHelpModalLabel">競爭集中度說明</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="ciModalBody"><p>載入中…</p></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+        </div>
+      </div>
     </div>
+  </div>
 
-    <div class="form-group">
-        <label for="store">選擇分店：</label>
-        <select id="store">
-            <option value="">-- 選擇分店 --</option>
-        </select>
-    </div>
-
-    <div class="form-group">
-        <button id="search">查詢</button>
-    </div>
-
-    <div id="map" style="width: 100%; height: 500px;"></div>
-
-    <div id="nearby-results">
-        <h2>500m 內的分店</h2>
-        <p id="store-count"></p>
-        <table border="1">
-            <thead>
-                <tr>
-                    <th>公司名稱</th>
-                    <th>分公司名稱</th>
-                    <th>地址</th>
-                    <th>距離 (km)</th>
-                </tr>
-            </thead>
-            <tbody id="stores-table">
-                <!-- 內容將由 JavaScript 填充 -->
-            </tbody>
-        </table>
-        <h3>競爭集中度：<span id="competition-index"></span></h3>
-    </div>
-
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <!-- jQuery (用於簡化 AJAX 操作) -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- 自訂 JavaScript -->
-    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+  <!-- JS Dependencies -->
+  <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Custom JS -->
+  <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
 </body>
 </html>

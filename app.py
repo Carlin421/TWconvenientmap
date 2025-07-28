@@ -122,7 +122,9 @@ def get_nearby_stores():
                 '公司名稱':   row['公司名稱'],
                 '分公司名稱': row['分公司名稱'],
                 'Address':    row[addr_col],
-                '距離':       round(d, 3)
+                '距離':       round(d, 3),
+            'Latitude':   row['Latitude'],    # 新增
+                'Longitude':  row['Longitude']    # 新增
             })
 
     num   = sum((4 if s['公司名稱']=='全聯實業股份有限公司' else 1)**2 for s in nearby)
