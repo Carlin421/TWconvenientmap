@@ -7,14 +7,16 @@ import certifi
 import xml.etree.ElementTree as ET
 from flask_cors import CORS
 import os
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 app = Flask(__name__)
 CORS(app)
 
 # SQLite connection
 conn = sqlite3.connect("stores.db", check_same_thread=False)
 conn.row_factory = sqlite3.Row
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+
 # Load entire stores table into DataFrame for efficiency
 df = pd.read_sql_query("SELECT * FROM stores", conn)
 
@@ -69,7 +71,7 @@ def get_districts():
         return jsonify({ 'error': 'Invalid county' }), 400
 
     towns = fetch_towns_by_county_code(code)
-    return jsonify([ t['Name'] for t in towns ])
+    return jsonify(towns)
 
 # ========== 分店查詢 ==========
 @app.route('/get_stores', methods=['GET', 'POST'])
