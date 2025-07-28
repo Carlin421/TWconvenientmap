@@ -3,6 +3,7 @@ import sqlite3
 import pandas as pd
 from geopy.distance import geodesic
 import requests
+import certifi
 import xml.etree.ElementTree as ET
 from flask_cors import CORS
 import os
@@ -35,18 +36,19 @@ county_code_mapping = {
     '屏東縣': 'T', '花蓮縣': 'U', '台東縣': 'V', '澎湖縣': 'X'
 }
 
+
 def fetch_towns_by_county_code(code):
     url = f"https://api.nlsc.gov.tw/other/ListTown1/{code}"
     try:
-        r = requests.get(url)
+        # 指定使用 certifi 的 CA bundle
+        r = requests.get(url, verify=certifi.where(), timeout=10)
         r.raise_for_status()
         root = ET.fromstring(r.content)
-        return [ { 'Name': item.find('townname').text.replace('臺','台') }
-                 for item in root.findall('townItem') ]
+        return [item.find('townname').text.replace('臺','台')
+                for item in root.findall('townItem')]
     except Exception as e:
         print(f"fetch_towns error: {e}")
         return []
-
 @app.route('/')
 def index():
     brands = sorted(df['公司名稱'].unique())
